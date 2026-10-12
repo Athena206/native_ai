@@ -5,6 +5,9 @@ declare(strict_types=1);
 require_once __DIR__ . '/db_connection.php';
 
 header('Content-Type: application/json; charset=utf-8');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: POST, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type');
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
@@ -13,6 +16,11 @@ function respond(int $statusCode, array $payload): void
 {
     http_response_code($statusCode);
     echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+    exit;
+}
+
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
+    http_response_code(204);
     exit;
 }
 
@@ -53,13 +61,21 @@ if (strlen($message) > 16000) {
 $apiKey = getenv('GROQ_API_KEY');
 if ($apiKey === false || trim($apiKey) === '') {
     error_log('Chatbot API error: GROQ_API_KEY is not configured.');
-    respond(500, ['error' => 'The chatbot is temporarily unavailable. Please try again later.']);
+    respond(500, [
+        'error' => 'The Groq API key is not configured. Set GROQ_API_KEY in the PHP server environment.',
+        'reply' => 'The Groq API key is not configured. Set GROQ_API_KEY in the PHP server environment.',
+    ]);
 }
 
 if (!function_exists('curl_init')) {
     error_log('Chatbot API error: the PHP cURL extension is not installed.');
-    respond(500, ['error' => 'The chatbot is temporarily unavailable. Please try again later.']);
+    respond(500, [
+        'error' => 'The PHP cURL extension is not enabled. Enable it in your PHP configuration and restart the server.',
+        'reply' => 'The PHP cURL extension is not enabled. Enable it in your PHP configuration and restart the server.',
+    ]);
 }
+
+$verifyTls = getenv('GROQ_SSL_VERIFY') !== '0';
 
 $systemPrompt = <<<'PROMPT'
 You are a multilingual digital banking assistant for the State Bank of India (SBI).
@@ -99,15 +115,18 @@ $curlConfigured = curl_setopt_array($curl, [
     CURLOPT_CONNECTTIMEOUT => 10,
     CURLOPT_TIMEOUT => 60,
     CURLOPT_FOLLOWLOCATION => false,
-    CURLOPT_SSL_VERIFYPEER => true,
-    CURLOPT_SSL_VERIFYHOST => 2,
+    CURLOPT_SSL_VERIFYPEER => $verifyTls,
+    CURLOPT_SSL_VERIFYHOST => $verifyTls ? 2 : 0,
 ]);
 
 if (!$curlConfigured) {
     $curlError = curl_error($curl);
     curl_close($curl);
     error_log('Chatbot API error: unable to configure the Groq request. ' . $curlError);
-    respond(500, ['error' => 'The chatbot is temporarily unavailable. Please try again later.']);
+    respond(500, [
+        'error' => 'Unable to configure the Groq API request. Check the PHP cURL configuration.',
+        'reply' => 'Unable to configure the Groq API request. Check the PHP cURL configuration.',
+    ]);
 }
 
 $groqResponseBody = curl_exec($curl);
@@ -117,13 +136,42 @@ curl_close($curl);
 
 if ($groqResponseBody === false) {
     error_log('Chatbot API Groq request failed: ' . $curlError);
-    respond(502, ['error' => 'The assistant could not be reached. Please try again later.']);
+    $message = stripos($curlError, 'ssl') !== false || stripos($curlError, 'certificate') !== false
+        ? 'Could not verify the Groq API TLS certificate. Configure PHP cURL with a valid CA bundle, or set GROQ_SSL_VERIFY=0 for local testing only.'
+        : 'Could not connect to the Groq API. Check the server network connection and try again.';
+    respond(502, ['error' => $message, 'reply' => $message]);
 }
 
 if ($groqStatusCode < 200 || $groqStatusCode >= 300) {
-    error_log('Chatbot API Groq request returned HTTP ' . $groqStatusCode . '.');
+    $groqErrorMessage = 'No provider error details were returned.';
+    try {
+        $errorResponse = json_decode($groqResponseBody, true, 512, JSON_THROW_ON_ERROR);
+        if (isset($errorResponse['error']['message']) && is_string($errorResponse['error']['message'])) {
+            $groqErrorMessage = $errorResponse['error']['message'];
+        }
+    } catch (JsonException $exception) {
+        error_log('Chatbot API error: Groq returned a non-JSON error response.');
+    }
+    error_log(sprintf(
+        'Chatbot API Groq request returned HTTP %d: %s',
+        $groqStatusCode,
+        $groqErrorMessage
+    ));
+
     $statusCode = $groqStatusCode === 429 ? 503 : 502;
-    respond($statusCode, ['error' => 'The assistant could not process your message. Please try again later.']);
+    if ($groqStatusCode === 401 || $groqStatusCode === 403) {
+        $message = 'Groq rejected the API key. Check that GROQ_API_KEY is valid and active.';
+    } elseif ($groqStatusCode === 429) {
+        $message = 'Groq is temporarily rate-limiting requests. Please wait and try again.';
+    } elseif ($groqStatusCode === 400) {
+        $message = 'Groq could not accept the request. Check the model and request configuration.';
+    } elseif ($groqStatusCode >= 500) {
+        $message = 'The Groq service is temporarily unavailable. Please try again later.';
+    } else {
+        $message = 'Groq could not process the request. Check the server log for details.';
+    }
+
+    respond($statusCode, ['error' => $message, 'reply' => $message]);
 }
 
 try {
@@ -166,7 +214,7 @@ try {
     ]);
 
     $pdo->commit();
-    respond(200, ['answer' => $answer]);
+    respond(200, ['reply' => $answer, 'answer' => $answer]);
 } catch (RuntimeException $exception) {
     if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) {
         $pdo->rollBack();

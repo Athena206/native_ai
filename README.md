@@ -122,7 +122,7 @@ SBI_DB_PASSWORD=your_database_password
 GROQ_API_KEY=your_groq_api_key
 ```
 
-Set `GROQ_API_KEY` in the PHP server's environment; do not put the key in client-side code or commit it to the repository. The API sends each message to Groq using the `llama-3.3-70b-versatile` model and returns the completion as JSON.
+Set `GROQ_API_KEY` in the PHP server's environment; do not put the key in client-side code or commit it to the repository. The API sends each message to Groq using the `llama-3.3-70b-versatile` model and returns the completion as JSON. TLS certificate verification is enabled by default. If local XAMPP testing fails because PHP cannot locate a CA bundle, configure cURL's CA bundle where possible; as a temporary local-only workaround, set `GROQ_SSL_VERIFY=0` in the PHP server environment and restart it. Never disable TLS verification in production.
 
 To test the connection and print its status in the terminal, run:
 
@@ -151,7 +151,7 @@ curl -X POST http://localhost/api.php \
   -d '{"message":"How do I make a fund transfer?"}'
 ```
 
-The endpoint returns the AI completion as `{"answer":"..."}` and records both messages in `chats` in one transaction; because requests are anonymous, both records use `NULL` for `user_id`. The SQL script makes this column nullable for both new and existing databases.
+The endpoint returns the AI completion as `{"reply":"...","answer":"..."}` and records both messages in `chats` in one transaction; because requests are anonymous, both records use `NULL` for `user_id`. `answer` is retained for compatibility with the included chat interface. The endpoint accepts cross-origin POST requests; restrict the allowed origin before deployment if it should only be called by a specific website. The SQL script makes this column nullable for both new and existing databases.
 
 [index.html](./index.html) provides the responsive browser chat interface. Serve the project directory through a PHP-enabled web server (rather than opening the file directly) so `fetch('api.php')` can reach the endpoint. For example, from the project directory run `php -S localhost:8000` and open `http://localhost:8000/`.
 
