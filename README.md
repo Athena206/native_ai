@@ -126,7 +126,7 @@ return [
 ];
 ```
 
-Environment variables override local settings: `GROQ_API_KEY`, `SBI_DB_HOST`, `SBI_DB_PORT`, `SBI_DB_USER`, and `SBI_DB_PASSWORD`. The API sends each message to Groq using the `llama-3.3-70b-versatile` model and returns the completion as JSON. TLS certificate verification is enabled by default. If local XAMPP testing fails because PHP cannot locate a CA bundle, configure cURL's CA bundle where possible; as a temporary local-only workaround, set `GROQ_SSL_VERIFY=0` in the PHP server environment and restart it. Never disable TLS verification in production.
+Environment variables override local settings: `GROQ_API_KEY`, `SBI_DB_HOST`, `SBI_DB_PORT`, `SBI_DB_USER`, and `SBI_DB_PASSWORD`. The API sends each message to Groq using the `qwen/qwen3.8-27b` model and returns the completion as JSON. The previous `llama-3.3-70b-versatile` model has been retired from this Groq account's available models. TLS certificate verification is enabled by default. If local XAMPP testing fails because PHP cannot locate a CA bundle, configure cURL's CA bundle where possible; as a temporary local-only workaround, set `GROQ_SSL_VERIFY=0` in the PHP server environment and restart it. Never disable TLS verification in production.
 
 The database is optional for answering chat requests. If it is unavailable or unconfigured, the AI answer is still returned and the API logs a warning that chat history was not saved. When using history, configure the database credentials in `config.local.php` or with the environment variables above.
 

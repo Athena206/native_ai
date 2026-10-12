@@ -10,7 +10,7 @@ header('Access-Control-Allow-Methods: POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const GROQ_MODEL = 'llama-3.3-70b-versatile';
+const GROQ_MODEL = 'qwen/qwen3.8-27b';
 
 function respond(int $statusCode, array $payload): void
 {
@@ -178,6 +178,8 @@ if ($groqStatusCode < 200 || $groqStatusCode >= 300) {
         $message = 'Groq is temporarily rate-limiting requests. Please wait and try again.';
     } elseif ($groqStatusCode === 400) {
         $message = 'Groq could not accept the request. Check the model and request configuration.';
+    } elseif ($groqStatusCode === 404) {
+        $message = 'The configured Groq model is unavailable. Update GROQ_MODEL to a model enabled for your account.';
     } elseif ($groqStatusCode >= 500) {
         $message = 'The Groq service is temporarily unavailable. Please try again later.';
     } else {
