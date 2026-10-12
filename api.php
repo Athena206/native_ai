@@ -58,12 +58,25 @@ if (strlen($message) > 16000) {
     respond(413, ['error' => 'The message exceeds the 16 KB limit.']);
 }
 
+try {
+    $localConfig = getLocalAppConfig();
+} catch (RuntimeException $exception) {
+    error_log('Chatbot API configuration error: ' . $exception->getMessage());
+    respond(500, [
+        'error' => 'The local configuration file is invalid. Check config.local.php and try again.',
+        'reply' => 'The local configuration file is invalid. Check config.local.php and try again.',
+    ]);
+}
+
 $apiKey = getenv('GROQ_API_KEY');
 if ($apiKey === false || trim($apiKey) === '') {
-    error_log('Chatbot API error: GROQ_API_KEY is not configured.');
+    $apiKey = $localConfig['groq_api_key'] ?? '';
+}
+if (!is_string($apiKey) || trim($apiKey) === '') {
+    error_log('Chatbot API error: configure GROQ_API_KEY or config.local.php.');
     respond(500, [
-        'error' => 'The Groq API key is not configured. Set GROQ_API_KEY in the PHP server environment.',
-        'reply' => 'The Groq API key is not configured. Set GROQ_API_KEY in the PHP server environment.',
+        'error' => 'Groq is not configured. Add a newly generated key to config.local.php or set GROQ_API_KEY in the PHP server environment.',
+        'reply' => 'Groq is not configured. Add a newly generated key to config.local.php or set GROQ_API_KEY in the PHP server environment.',
     ]);
 }
 
@@ -220,6 +233,10 @@ try {
         $pdo->rollBack();
     }
 
-    error_log('Chatbot API database error: ' . $exception->getMessage());
-    respond(500, ['error' => 'The chatbot is temporarily unavailable. Please try again later.']);
+    error_log('Chatbot API database logging failed: ' . $exception->getMessage());
+    respond(200, [
+        'reply' => $answer,
+        'answer' => $answer,
+        'warning' => 'Your question was answered, but the conversation could not be saved to chat history.',
+    ]);
 }

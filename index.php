@@ -581,6 +581,9 @@
                 }
 
                 appendMessage(payload.answer, 'bot');
+                if (typeof payload.warning === 'string') {
+                    appendMessage(payload.warning, 'bot', 'error');
+                }
             } catch (error) {
                 pendingMessage.remove();
                 appendMessage(

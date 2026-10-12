@@ -100,7 +100,7 @@ The following is a suggested layout for the initial implementation:
 
 ## Development Setup
 
-The project includes a PHP chatbot API backed by Groq and a browser-based chat interface. Run it with PHP 8+, the cURL and PDO MySQL extensions, a configured MySQL database, and the environment variables shown below.
+The project includes a PHP chatbot API backed by Groq and a browser-based chat interface. Run it with PHP 8+ and the cURL extension. MySQL and PDO MySQL are optional; when configured, the API saves chat history.
 
 The starter MySQL database schema and FAQ seed data are in [sbi_chatbot_db.sql](./sbi_chatbot_db.sql). With MySQL 8.0+ installed and a user authorized to create databases, run:
 
@@ -110,21 +110,27 @@ mysql -u <your_mysql_user> -p < sbi_chatbot_db.sql
 
 This script creates `sbi_chatbot_db` and its `users`, `chats`, and `faqs` tables. The MySQL schema is a starter database script; the intended production architecture described above separately proposes PostgreSQL and MongoDB.
 
-### PHP PDO connection
+### Local credentials
 
-[db_connection.php](./db_connection.php) provides `getDatabaseConnection()`, which returns a PDO connection. Configure credentials through environment variables rather than placing them in source code:
+Copy `config.local.php.example` to `config.local.php` and add your newly generated Groq API key to the `groq_api_key` value. The local config is excluded from Git, and credentials must never be placed in browser-side code or committed:
 
 ```text
-SBI_DB_HOST=127.0.0.1
-SBI_DB_PORT=3306
-SBI_DB_USER=your_database_user
-SBI_DB_PASSWORD=your_database_password
-GROQ_API_KEY=your_groq_api_key
+return [
+    'groq_api_key' => 'your_new_groq_api_key',
+    'database' => [
+        'host' => '127.0.0.1',
+        'port' => '3306',
+        'user' => 'your_database_user',
+        'password' => 'your_database_password',
+    ],
+];
 ```
 
-Set `GROQ_API_KEY` in the PHP server's environment; do not put the key in client-side code or commit it to the repository. The API sends each message to Groq using the `llama-3.3-70b-versatile` model and returns the completion as JSON. TLS certificate verification is enabled by default. If local XAMPP testing fails because PHP cannot locate a CA bundle, configure cURL's CA bundle where possible; as a temporary local-only workaround, set `GROQ_SSL_VERIFY=0` in the PHP server environment and restart it. Never disable TLS verification in production.
+Environment variables override local settings: `GROQ_API_KEY`, `SBI_DB_HOST`, `SBI_DB_PORT`, `SBI_DB_USER`, and `SBI_DB_PASSWORD`. The API sends each message to Groq using the `llama-3.3-70b-versatile` model and returns the completion as JSON. TLS certificate verification is enabled by default. If local XAMPP testing fails because PHP cannot locate a CA bundle, configure cURL's CA bundle where possible; as a temporary local-only workaround, set `GROQ_SSL_VERIFY=0` in the PHP server environment and restart it. Never disable TLS verification in production.
 
-To test the connection and print its status in the terminal, run:
+The database is optional for answering chat requests. If it is unavailable or unconfigured, the AI answer is still returned and the API logs a warning that chat history was not saved. When using history, configure the database credentials in `config.local.php` or with the environment variables above.
+
+To test the database connection and print its status in the terminal, run:
 
 ```sh
 php test_db_connection.php
@@ -151,7 +157,7 @@ curl -X POST http://localhost/api.php \
   -d '{"message":"How do I make a fund transfer?"}'
 ```
 
-The endpoint returns the AI completion as `{"reply":"...","answer":"..."}` and records both messages in `chats` in one transaction; because requests are anonymous, both records use `NULL` for `user_id`. `answer` is retained for compatibility with the included chat interface. The endpoint accepts cross-origin POST requests; restrict the allowed origin before deployment if it should only be called by a specific website. The SQL script makes this column nullable for both new and existing databases.
+The endpoint returns the AI completion as `{"reply":"...","answer":"..."}` and, when database logging is configured, records both messages in `chats` in one transaction; because requests are anonymous, both records use `NULL` for `user_id`. `answer` is retained for compatibility with the included chat interface. The endpoint accepts cross-origin POST requests; restrict the allowed origin before deployment if it should only be called by a specific website. The SQL script makes this column nullable for both new and existing databases.
 
 [index.html](./index.html) provides the responsive browser chat interface. Serve the project directory through a PHP-enabled web server (rather than opening the file directly) so `fetch('api.php')` can reach the endpoint. For example, from the project directory run `php -S localhost:8000` and open `http://localhost:8000/`.
 
