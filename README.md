@@ -100,7 +100,7 @@ The following is a suggested layout for the initial implementation:
 
 ## Development Setup
 
-The project includes a PHP FAQ API and a browser-based chat interface. Run it with PHP 8+ and the PDO MySQL extension, a configured MySQL database, and the environment variables shown below.
+The project includes a PHP chatbot API backed by Groq and a browser-based chat interface. Run it with PHP 8+, the cURL and PDO MySQL extensions, a configured MySQL database, and the environment variables shown below.
 
 The starter MySQL database schema and FAQ seed data are in [sbi_chatbot_db.sql](./sbi_chatbot_db.sql). With MySQL 8.0+ installed and a user authorized to create databases, run:
 
@@ -119,7 +119,10 @@ SBI_DB_HOST=127.0.0.1
 SBI_DB_PORT=3306
 SBI_DB_USER=your_database_user
 SBI_DB_PASSWORD=your_database_password
+GROQ_API_KEY=your_groq_api_key
 ```
+
+Set `GROQ_API_KEY` in the PHP server's environment; do not put the key in client-side code or commit it to the repository. The API sends each message to Groq using the `llama-3.3-70b-versatile` model and returns the completion as JSON.
 
 To test the connection and print its status in the terminal, run:
 
@@ -140,7 +143,7 @@ try {
 }
 ```
 
-[api.php](./api.php) exposes the FAQ chatbot endpoint. Send a `POST` request with `Content-Type: application/json` and a JSON body containing a non-empty string `message` (maximum 16 KB):
+[api.php](./api.php) exposes the chatbot endpoint. Send a `POST` request with `Content-Type: application/json` and a JSON body containing a non-empty string `message` (maximum 16 KB):
 
 ```sh
 curl -X POST http://localhost/api.php \
@@ -148,7 +151,7 @@ curl -X POST http://localhost/api.php \
   -d '{"message":"How do I make a fund transfer?"}'
 ```
 
-The endpoint returns `{"answer":"..."}` with a matching FAQ answer or the fallback response. It records both messages in `chats` in one transaction; because requests are anonymous, both records use `NULL` for `user_id`. The SQL script makes this column nullable for both new and existing databases.
+The endpoint returns the AI completion as `{"answer":"..."}` and records both messages in `chats` in one transaction; because requests are anonymous, both records use `NULL` for `user_id`. The SQL script makes this column nullable for both new and existing databases.
 
 [index.html](./index.html) provides the responsive browser chat interface. Serve the project directory through a PHP-enabled web server (rather than opening the file directly) so `fetch('api.php')` can reach the endpoint. For example, from the project directory run `php -S localhost:8000` and open `http://localhost:8000/`.
 

@@ -168,6 +168,30 @@
             background: #fff;
         }
 
+        .composer-tools {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 9px;
+        }
+
+        .language-select {
+            min-height: 36px;
+            padding: 0 34px 0 11px;
+            border: 1px solid #dce4ed;
+            border-radius: 10px;
+            background: #fff;
+            color: #263b56;
+            font: inherit;
+            font-size: 0.82rem;
+            cursor: pointer;
+        }
+
+        .language-select:focus-visible,
+        .voice-button:focus-visible {
+            outline: 3px solid rgb(0 51 102 / 20%);
+            outline-offset: 2px;
+        }
+
         .composer-form {
             display: flex;
             align-items: center;
@@ -235,6 +259,52 @@
         .send-button svg {
             width: 16px;
             height: 16px;
+        }
+
+        .voice-button {
+            display: inline-grid;
+            width: 42px;
+            height: 42px;
+            flex: 0 0 auto;
+            place-items: center;
+            border: 1px solid #dce4ed;
+            border-radius: 11px;
+            background: #fff;
+            color: var(--sbi-blue);
+            cursor: pointer;
+            transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
+        }
+
+        .voice-button:hover:not(:disabled) {
+            background: var(--sbi-blue-light);
+        }
+
+        .voice-button.is-listening {
+            border-color: #b42318;
+            background: #fff1f0;
+            color: #b42318;
+        }
+
+        .voice-button:disabled {
+            cursor: not-allowed;
+            opacity: 0.55;
+        }
+
+        .voice-button svg {
+            width: 19px;
+            height: 19px;
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
         }
 
         .privacy-note {
@@ -320,8 +390,16 @@
         </section>
 
         <footer class="composer">
+            <div class="composer-tools">
+                <label class="sr-only" for="voice-language">Voice input language</label>
+                <select class="language-select" id="voice-language" name="voice-language">
+                    <option value="en-US">English</option>
+                    <option value="hi-IN">हिन्दी (Hindi)</option>
+                    <option value="bn-IN">বাংলা (Bengali)</option>
+                </select>
+            </div>
             <form class="composer-form" id="chat-form">
-                <label class="sr-only" for="message-input" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;">Your message</label>
+                <label class="sr-only" for="message-input">Your message</label>
                 <input
                     id="message-input"
                     name="message"
@@ -332,6 +410,19 @@
                     aria-label="Type your message"
                     required
                 >
+                <button
+                    class="voice-button"
+                    id="voice-button"
+                    type="button"
+                    aria-label="Start voice input"
+                    aria-pressed="false"
+                    title="Start voice input"
+                >
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <rect x="9" y="3" width="6" height="12" rx="3" stroke="currentColor" stroke-width="1.8"/>
+                        <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3m-4 0h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                    </svg>
+                </button>
                 <button class="send-button" id="send-button" type="submit">
                     <span>Send</span>
                     <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
@@ -339,6 +430,7 @@
                     </svg>
                 </button>
             </form>
+            <p class="sr-only" id="voice-status" aria-live="polite"></p>
             <p class="privacy-note">Never share your password, PIN, or one-time passcode in chat.</p>
         </footer>
     </main>
@@ -347,7 +439,85 @@
         const form = document.getElementById('chat-form');
         const input = document.getElementById('message-input');
         const sendButton = document.getElementById('send-button');
+        const voiceButton = document.getElementById('voice-button');
+        const voiceLanguage = document.getElementById('voice-language');
+        const voiceStatus = document.getElementById('voice-status');
         const messages = document.getElementById('messages');
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition = null;
+        let isListening = false;
+
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.lang = voiceLanguage.value;
+            recognition.continuous = false;
+            recognition.interimResults = false;
+
+            voiceLanguage.addEventListener('change', () => {
+                recognition.lang = voiceLanguage.value;
+            });
+
+            recognition.addEventListener('start', () => {
+                isListening = true;
+                voiceButton.classList.add('is-listening');
+                voiceButton.setAttribute('aria-pressed', 'true');
+                voiceButton.setAttribute('aria-label', 'Stop voice input');
+                voiceButton.title = 'Stop voice input';
+                voiceStatus.textContent = `Listening in ${voiceLanguage.selectedOptions[0].textContent}.`;
+            });
+
+            recognition.addEventListener('result', (event) => {
+                const result = event.results[event.results.length - 1];
+                if (!result.isFinal) {
+                    return;
+                }
+
+                input.value = result[0].transcript.trim();
+                if (input.value) {
+                    recognition.stop();
+                    sendMessage();
+                }
+            });
+
+            recognition.addEventListener('error', (event) => {
+                if (event.error !== 'aborted' && event.error !== 'no-speech') {
+                    voiceStatus.textContent = 'Voice input could not start. Check microphone access and try again.';
+                    appendMessage(voiceStatus.textContent, 'bot', 'error');
+                }
+            });
+
+            recognition.addEventListener('end', () => {
+                isListening = false;
+                voiceButton.classList.remove('is-listening');
+                voiceButton.setAttribute('aria-pressed', 'false');
+                voiceButton.setAttribute('aria-label', 'Start voice input');
+                voiceButton.title = 'Start voice input';
+                voiceButton.disabled = sendButton.disabled;
+                if (!sendButton.disabled) {
+                    voiceStatus.textContent = '';
+                }
+            });
+
+            voiceButton.addEventListener('click', () => {
+                if (isListening) {
+                    recognition.stop();
+                    return;
+                }
+
+                recognition.lang = voiceLanguage.value;
+                voiceStatus.textContent = '';
+                try {
+                    recognition.start();
+                } catch (error) {
+                    voiceStatus.textContent = 'Voice input could not start. Please try again.';
+                    appendMessage(voiceStatus.textContent, 'bot', 'error');
+                }
+            });
+        } else {
+            voiceButton.disabled = true;
+            voiceButton.title = 'Voice input is not supported in this browser';
+            voiceStatus.textContent = 'Voice input is not supported in this browser.';
+        }
 
         function appendMessage(text, sender, extraClass = '') {
             const row = document.createElement('div');
@@ -368,18 +538,21 @@
             return row;
         }
 
-        form.addEventListener('submit', async (event) => {
-            event.preventDefault();
+        async function sendMessage() {
             const message = input.value.trim();
             if (!message || sendButton.disabled) {
                 return;
             }
 
+            if (isListening) {
+                recognition.stop();
+            }
             appendMessage(message, 'user');
             input.value = '';
             input.focus();
             sendButton.disabled = true;
             input.disabled = true;
+            voiceButton.disabled = true;
             sendButton.querySelector('span').textContent = 'Sending';
             const pendingMessage = appendMessage('Preparing a response…', 'bot', 'pending');
 
@@ -420,9 +593,15 @@
             } finally {
                 sendButton.disabled = false;
                 input.disabled = false;
+                voiceButton.disabled = !recognition;
                 sendButton.querySelector('span').textContent = 'Send';
                 input.focus();
             }
+        }
+
+        form.addEventListener('submit', (event) => {
+            event.preventDefault();
+            sendMessage();
         });
     </script>
 </body>
