@@ -239,6 +239,5 @@ try {
     respond(200, [
         'reply' => $answer,
         'answer' => $answer,
-        'warning' => 'Your question was answered, but the conversation could not be saved to chat history.',
     ]);
 }
