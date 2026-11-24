@@ -1,122 +1,79 @@
-# SBI AI Hackathon Chatbot
+# Native AI — Banking Support Portal & Chatbot
 
-An AI-powered banking chatbot concept for helping customers discover digital banking features, get guided support, and reach a human agent when needed.
+An AI-powered digital banking support portal and conversational assistant built with **PHP 8+**, **MySQL**, and **Groq LLM** (`qwen/qwen3.8-27b`). It helps users explore banking FAQs, visual digital-banking guides, interactive financial calculators, and real-time multilingual AI assistance with text-to-speech playback.
 
-> **Project status:** Planning / initial scaffold. The architecture and features below describe the intended implementation; they are not a claim that the integrations or banking operations are already implemented.
+---
 
-## Overview
+## Implemented Features
 
-The chatbot is designed to provide conversational, around-the-clock support through web, mobile, and WhatsApp channels. It combines intent recognition and retrieval-based answers with an optional large language model (LLM) for context-aware guidance. Conversation context and feedback can be stored to improve continuity and help teams evaluate answer quality.
+### 1. Side-by-Side AI Chatbot
+- **Always-Accessible Assistant**: Once a user logs in (or via the quick-help drawer in the navigation menu), the **Native AI** chatbot opens beside the main portal with the greeting *"How can I help you?"*.
+- **Groq LLM Integration (`api.php`)**: Sends user queries to Groq (`qwen/qwen3.8-27b`) and returns structured JSON responses (`{"reply": "...", "answer": "..."}`), while logging user and bot messages to MySQL (`chats` table) when configured.
+- **Voice Playback (`tts.php`)**: Built-in **Listen** controls on FAQ answers and chat responses with server-side TTS proxy support (`en`, `hi`, `bn`) and browser speech fallback.
 
-### Goals
+### 2. User Authentication (`auth.php`)
+- **Session-Based Sign Up & Log In**: Modal-based authentication (`#auth-modal`) backed by MySQL `users` table (`name`, `email`, `password_hash`, `phone`), HTTP-only `Lax` session cookies, and automatic schema migration via `ensureUsersAuthSchema()`.
+- **Authenticated Experience**: Displays the signed-in user chip and logout control in the header, and surfaces the side-by-side chatbot automatically on login.
 
-- Help customers adopt digital banking features with clear, step-by-step instructions.
-- Answer common banking questions in a responsive, conversational style.
-- Maintain a consistent experience across supported channels.
-- Escalate sensitive, complex, or unresolved requests to a human support agent.
-- Capture feedback and interaction data for ongoing quality improvements.
+### 3. Multilingual Support (`EN` / `HI` / `BN`)
+- Live language switcher supporting **English**, **Hindi (`हिन्दी`)**, and **Bengali (`বাংলা`)** across portal navigation, hero content, FAQs, guides, and TTS playback.
 
-## Intended Architecture
+### 4. Accessible Light & Dark Themes
+- **High-Contrast Color System**: Carefully tuned palettes for both **Light Mode** (`#F8FAFC` background, `#FFFFFF` cards, `#0F294A` navy, `#0D9488` teal, `#0F172A` text) and **Dark Mode** (`#090D16` deep slate, `#111827` / `#182234` surfaces, `#2DD4BF` luminous teal, `#F1F5F9` text) to reduce eye strain.
+- **Icon-Only Theme Toggle**: Persists user theme preference in `localStorage`.
 
-```text
-Web / Mobile / WhatsApp
-          |
-          v
-Channel adapters and webhook API
-          |
-          v
-FastAPI application
-  ├── Intent recognition and answer retrieval
-  ├── Optional LLM response generation
-  ├── Human handoff and feedback handling
-  └── Conversation and customer context
-          |
-          ├── PostgreSQL: structured application data
-          └── MongoDB: conversation history and profile context
-```
+### 5. Banking Self-Service & UI Enhancements
+- **Interactive FAQs (`#faqs`)**: Smoothly animated `<details>` accordions (Web Animations API height + fade transitions, `prefers-reduced-motion` aware) with **Listen** audio buttons.
+- **Picture Services (`#services`) & Step Guides (`#steps`)**: Visual cards and step-by-step digital banking instructions.
+- **Financial Calculator (`#calculator`)**: Interactive banking calculator panel.
+- **Compact Navigation Menu (`#chatbot-dropdown`)**: Aligned, compact hamburger menu with Navigation links, Quick Help chatbot drawer, Account actions, and **About Developer**.
+- **About Developer Modal (`#developer-modal`)**: Accessible from the menu in both guest and logged-in states, showcasing developer profile details (Sangita Sinha — BCA 3rd Year · Hackathon Project).
+- **Static Corner Brand Badge**: Fixed `Native AI` badge pinned to the bottom-left corner across scrolling.
 
-The backend is planned in Python with FastAPI. The web chat experience is planned as a React component. External LLM, messaging, and database integrations should be enabled only through explicitly configured credentials and services.
+---
 
-## Planned Features
-
-- **Natural-language support:** Identify customer intent from plain-language messages.
-- **Guided answers:** Provide relevant answers and instructions for using digital banking features.
-- **Multi-channel interface:** Support web, mobile application, and WhatsApp integrations through channel adapters.
-- **Conversation context:** Retain relevant history and preferences, subject to consent and retention policies.
-- **Human handoff:** Escalate requests that are sensitive, complex, or cannot be handled confidently.
-- **Feedback loop:** Record answer feedback and operational metrics for review and improvement.
-
-## Proposed Project Structure
-
-The following is a suggested layout for the initial implementation:
+## Project Structure
 
 ```text
 .
-├── backend/
-│   ├── app/
-│   │   ├── api/             # Chat and health endpoints
-│   │   ├── services/        # Intent, retrieval, LLM, and handoff logic
-│   │   ├── db/              # PostgreSQL and MongoDB access
-│   │   └── main.py          # FastAPI application
-│   ├── tests/
-│   └── requirements.txt
-├── frontend/
-│   ├── src/
-│   │   └── components/      # React chat widget
-│   └── package.json
-├── .env.example
-├── Dockerfile
+├── index.php                  # Main portal UI, themes, modals, multilingual JS, and chatbot interface
+├── api.php                    # Groq LLM chat endpoint (POST JSON) + MySQL chat logging
+├── auth.php                   # Session-based Sign Up / Log In / Log Out & users schema migration
+├── tts.php                    # Text-to-Speech proxy endpoint (?q=...&lang=en|hi|bn)
+├── db_connection.php          # PDO MySQL connection helper + local config loader
+├── test_db_connection.php     # CLI script to verify MySQL connectivity
+├── sbi_chatbot_db.sql         # Starter MySQL 8.0+ schema (users, chats, faqs) + seed FAQs
+├── config.local.php.example   # Template for local Groq API key and MySQL credentials
 └── README.md
 ```
 
-## Technology Plan
+---
 
-| Area | Planned technology |
-| --- | --- |
-| API | Python, FastAPI |
-| Web interface | React, HTML, CSS |
-| Structured data | PostgreSQL |
-| Conversation history and context | MongoDB |
-| Language understanding and generation | Intent recognition, retrieval, optional GPT or Claude integration |
-| Channels | Web SDK, mobile application integration, WhatsApp Business API |
-| Deployment | Docker; AWS or compatible cloud platform |
+## Manual Setup & Running Locally
 
-## Implementation Roadmap
+### Prerequisites
+- **PHP 8.0+** with `pdo_mysql` and `curl` extensions enabled
+- **MySQL 8.0+** (or MariaDB) running on `127.0.0.1:3306`
 
-1. **MVP**
-   - Establish the backend and frontend project structure.
-   - Add a basic chat endpoint and web chat widget.
-   - Implement a small set of intents and retrieval-based answers.
-   - Define the channel adapter interface.
-2. **Intelligence and integrations**
-   - Add an LLM provider behind a configurable service interface.
-   - Connect PostgreSQL and MongoDB as appropriate for the data model.
-   - Add conversation context, feedback capture, and human handoff.
-   - Test privacy, safety, and failure handling.
-3. **Deployment**
-   - Containerize the services.
-   - Configure production secrets and observability.
-   - Deploy to the selected cloud platform and validate channel integrations.
-
-## Development Setup
-
-The project includes a PHP chatbot API backed by Groq and a browser-based chat interface. Run it with PHP 8+ and the cURL extension. MySQL and PDO MySQL are optional; when configured, the API saves chat history.
-
-The starter MySQL database schema and FAQ seed data are in [sbi_chatbot_db.sql](./sbi_chatbot_db.sql). With MySQL 8.0+ installed and a user authorized to create databases, run:
+### 1. Import the Database
+Start MySQL (e.g., via XAMPP or Windows Services) and import [sbi_chatbot_db.sql](./sbi_chatbot_db.sql):
 
 ```sh
 mysql -u <your_mysql_user> -p < sbi_chatbot_db.sql
 ```
 
-This script creates `sbi_chatbot_db` and its `users`, `chats`, and `faqs` tables. The MySQL schema is a starter database script; the intended production architecture described above separately proposes PostgreSQL and MongoDB.
+This creates `sbi_chatbot_db` along with the `users`, `chats`, and `faqs` tables and starter FAQ data.
 
-### Local credentials
+### 2. Configure Local Credentials
+Copy [config.local.php.example](./config.local.php.example) to `config.local.php` (excluded from Git via `.gitignore`) and fill in your Groq API key and MySQL credentials (a non-empty `user` and `password` are required by `db_connection.php`):
 
-Copy `config.local.php.example` to `config.local.php` and add your newly generated Groq API key to the `groq_api_key` value. The local config is excluded from Git, and credentials must never be placed in browser-side code or committed:
+```php
+<?php
 
-```text
+declare(strict_types=1);
+
 return [
-    'groq_api_key' => 'your_new_groq_api_key',
+    'groq_api_key' => 'your_groq_api_key',
     'database' => [
         'host' => '127.0.0.1',
         'port' => '3306',
@@ -126,51 +83,48 @@ return [
 ];
 ```
 
-Environment variables override local settings: `GROQ_API_KEY`, `SBI_DB_HOST`, `SBI_DB_PORT`, `SBI_DB_USER`, and `SBI_DB_PASSWORD`. The API sends each message to Groq using the `qwen/qwen3.8-27b` model and returns the completion as JSON. The previous `llama-3.3-70b-versatile` model has been retired from this Groq account's available models. TLS certificate verification is enabled by default. If local XAMPP testing fails because PHP cannot locate a CA bundle, configure cURL's CA bundle where possible; as a temporary local-only workaround, set `GROQ_SSL_VERIFY=0` in the PHP server environment and restart it. Never disable TLS verification in production.
+Environment variables (`GROQ_API_KEY`, `SBI_DB_HOST`, `SBI_DB_PORT`, `SBI_DB_USER`, `SBI_DB_PASSWORD`) override `config.local.php` if set.
 
-The database is optional for answering chat requests. If it is unavailable or unconfigured, the AI answer is still returned and the API logs a warning that chat history was not saved. When using history, configure the database credentials in `config.local.php` or with the environment variables above.
+> **TLS Note for Local Testing:** TLS certificate verification is enabled by default for Groq requests. If local XAMPP/Windows testing fails due to a missing CA bundle, configure `curl.cainfo` in `php.ini`; as a temporary local-only workaround, you can set `GROQ_SSL_VERIFY=0` in the PHP environment (never disable TLS verification in production).
 
-To test the database connection and print its status in the terminal, run:
+### 3. Test Database Connection (Optional)
+Run from the project root:
 
 ```sh
 php test_db_connection.php
 ```
 
-Example use:
+Expected output: `Database connection successful.`
 
-```php
-require_once __DIR__ . '/db_connection.php';
-
-try {
-    $pdo = getDatabaseConnection();
-    // Use $pdo with prepared statements.
-} catch (RuntimeException $exception) {
-    // Handle configuration or connection failure without exposing credentials.
-}
-```
-
-[api.php](./api.php) exposes the chatbot endpoint. Send a `POST` request with `Content-Type: application/json` and a JSON body containing a non-empty string `message` (maximum 16 KB):
+### 4. Start the PHP Server
+From the project directory, run:
 
 ```sh
-curl -X POST http://localhost/api.php \
-  -H "Content-Type: application/json" \
-  -d '{"message":"How do I make a fund transfer?"}'
+php -S localhost:8000
 ```
 
-The endpoint returns the AI completion as `{"reply":"...","answer":"..."}` and, when database logging is configured, records both messages in `chats` in one transaction; because requests are anonymous, both records use `NULL` for `user_id`. `answer` is retained for compatibility with the included chat interface. The endpoint accepts cross-origin POST requests; restrict the allowed origin before deployment if it should only be called by a specific website. The SQL script makes this column nullable for both new and existing databases.
+Then open **`http://localhost:8000/`** in your browser.
 
-[index.html](./index.html) provides the responsive browser chat interface. Serve the project directory through a PHP-enabled web server (rather than opening the file directly) so `fetch('api.php')` can reach the endpoint. For example, from the project directory run `php -S localhost:8000` and open `http://localhost:8000/`.
+---
 
-Do not commit credentials. Store provider keys, database URLs, and messaging credentials in a local environment file or a secrets manager, and provide only placeholder variable names in `.env.example`.
+## API Endpoints
+
+- **`POST /api.php`** (`Content-Type: application/json`)
+  - Body: `{"message": "How do I make a fund transfer?"}` (non-empty string, max 16 KB)
+  - Response: `{"reply": "...", "answer": "..."}`
+- **`POST /auth.php`**
+  - Handles user registration, login, and logout using PHP sessions and MySQL `users`.
+- **`GET /tts.php?q=<text>&lang=<en|hi|bn>`**
+  - Returns audio stream (up to 200 characters per request) for FAQ and chatbot speech playback.
+
+---
 
 ## Security and Responsible Use
 
-- Do not request or store passwords, PINs, one-time passcodes, full card numbers, or other authentication secrets in chat.
-- Do not treat an LLM response as authorization to perform a financial transaction.
-- Require authenticated, server-side authorization and appropriate confirmation for any future account-specific action.
-- Escalate suspected fraud, account compromise, disputes, and other sensitive cases to an approved support channel.
-- Minimize personal data, restrict access, encrypt data in transit and at rest, and define retention and deletion policies before storing conversation history.
-- Verify applicable banking, privacy, and security requirements before connecting real customer data or production systems.
+- Never commit `config.local.php` or place API keys / database credentials in client-side code.
+- Do not request or store passwords, PINs, OTPs, or full card numbers in chat messages.
+- Do not treat an LLM response as authorization for financial transactions; escalate sensitive account issues or suspected fraud to official bank support channels.
+- Restrict CORS (`Access-Control-Allow-Origin`) in `api.php` before deploying to production.
 
 ## License
 
